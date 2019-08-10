@@ -1,0 +1,260 @@
+---
+title: "1 piRNA and Degradome Count Generation"
+author: "Bryan Teefy"
+date: "08/09/2019"
+output:
+  pdf_document: default
+  html_document: default
+  word_document: default
+editor_options:
+  chunk_output_type: inline
+---
+
+```{r knit_prep, echo=F, results='hide', message=F, warning=F}
+library("knitr")
+opts_chunk$set(tidy.opts=list(width.cutoff=80),tidy=TRUE, dev="png", dpi=150)
+```
+
+#Load Required Libraries
+
+```{r, echo=TRUE, include= TRUE, message= FALSE, warning=FALSE}
+
+library(dplyr)
+library(reshape2)
+library(ggplot2)
+library(ggpubr)
+
+```
+
+#Classifying Transcripts in the *Hydra* Transcriptome
+
+To determine the category of transcript to which piRNAs and degradome reads align, transcripts were classified as TEs, ncRNAs, uncharacterized transcripts, and genes.
+
+The *Hydra* transcriptome was BLASTed against the *Hydra* Repbase, Swissprot, and nr databases with an e-value of 1e-5. 
+
+HMMER suite 3.1b2 (February 2015, http://www.hmmer.org/) and Pfam v31.0 database were used to identify protein domains in the transcriptome using an e-value of 1e-6.  
+
+Uniprot protein descriptions were added to any transcripts that had a match in the Swissprot database using Uniprot’s Retrieve ID/mapping tool (https://www.uniprot.org/uploadlists/).  
+
+Open reading frames were identified using Transdecoder.  
+
+Results are summarized in Table S1.  
+
+#Load Transcriptome Annotation Matrix
+
+```{r, echo=TRUE, include= TRUE, message= FALSE, warning=FALSE}
+
+Transcript_Characterization <- read.table("objects/Transcriptome_Annotation_Matrix.txt", sep="\t", check.names = FALSE, header = TRUE)
+
+```
+
+##Transposon Annotation
+
+Transcripts that met the following criteria were classified as TEs:
+
+Transcripts with significant similarities to entries in the Repbase database.  
+
+Transcripts with Swissprot protein descriptions or nr sequence descriptions containing the strings “transpos”, “J/jerky”, and “mobile element”.  
+
+Transcripts with Pfam domain descriptions predicted to encode domains containing “transposase”, “THAP”, "DDE_Tnp", "_Tnp" or “_tnp_”.  
+
+##non-coding RNA (ncRNA) Annotation
+
+We considered sequences non-coding RNAs if they were lacking TE annotation, Swissprot hit, nr hit, known PFAM domain, and an ORF equal to or greater than 100 amino acids. ORFs were predicted using Transdecoder using command TransDecoder.LongOrfs -S -t.
+
+## Taxonomically Restricted Genes (TRGs)/Uncharacterized Genes
+
+Uncharacterized Genes were defined as transcripts predicted to contain an ORF equal to or greater than 100 amino acids without a Swissprot Hit, nr hit, known domain, or TE annotation. Nr hits termed “uncharacterized protein” were also considered in this category.  
+
+##Gene Annotation
+
+Genes were defined as transcripts with a Swissprot hit, nr hit, or domain annotation, and that were not classified as TEs by our annotation.  
+
+```{r, echo=TRUE, include= TRUE, message= FALSE, warning=FALSE}
+
+#Classify transcripts
+
+Transcript_Characterization$Transcript_Class <- ifelse((
+
+  !is.na(Transcript_Characterization$Repbase_Hit) | grepl(("transpos"), Transcript_Characterization$Uniprot_Description, ignore.case = TRUE) | 
+    grepl(("mobile element"), Transcript_Characterization$Uniprot_Description, ignore.case = TRUE) | 
+    grepl(("jerky"), Transcript_Characterization$Uniprot_Description, ignore.case = TRUE) | 
+    grepl(("transpos"), Transcript_Characterization$nr_Hit, ignore.case = TRUE) | 
+    grepl(("mobile element"), Transcript_Characterization$nr_Hit, ignore.case = TRUE) | 
+    grepl(("jerky"), Transcript_Characterization$nr_Hit, ignore.case = TRUE) | 
+    grepl(("Transposase"), Transcript_Characterization$PFAM_Annotation, ignore.case = TRUE) | 
+    grepl(("THAP"), Transcript_Characterization$PFAM_Annotation, ignore.case = TRUE) | 
+    grepl(("_Tnp_"), Transcript_Characterization$PFAM_Annotation, ignore.case = TRUE) | 
+    grepl(("DDE_Tnp"), Transcript_Characterization$PFAM_Annotation, ignore.case = TRUE) | 
+    grepl(("_Tnp"), Transcript_Characterization$PFAM_Annotation, ignore.case = TRUE)),"TE",
+                                                    
+    ifelse(is.na(Transcript_Characterization$ORF) & is.na(Transcript_Characterization$Uniprot_Description) & is.na(Transcript_Characterization$PFAM_Annotation) & is.na(Transcript_Characterization$nr_Hit), "ncRNA",
+                                                              
+    ifelse((!is.na(Transcript_Characterization$ORF) & is.na(Transcript_Characterization$Uniprot_Description) & is.na(Transcript_Characterization$PFAM_Annotation) & (is.na(Transcript_Characterization$nr_Hit)) | (!is.na(Transcript_Characterization$ORF) & is.na(Transcript_Characterization$Uniprot_Description) & is.na(Transcript_Characterization$PFAM_Annotation) & grepl(("uncharacterized protein"), Transcript_Characterization$nr_Hit, ignore.case = TRUE)) | (is.na(Transcript_Characterization$ORF) & is.na(Transcript_Characterization$Uniprot_Description) & is.na(Transcript_Characterization$PFAM_Annotation) & grepl(("uncharacterized protein"), Transcript_Characterization$nr_Hit, ignore.case = TRUE))),"Unchar", "Gene")))
+
+#Visualize Transcriptome Breakdown
+
+transcriptome_annotation_whole <- c(sum(Transcript_Characterization$Transcript_Class == "TE"),sum(Transcript_Characterization$Transcript_Class == "ncRNA"),sum(Transcript_Characterization$Transcript_Class == "Unchar"),sum(Transcript_Characterization$Transcript_Class == "Gene"))
+
+lbls <- c("TEs", "ncRNAs", "Unchar", "Genes")
+colors = c("red", "blue", "gray", "green")
+pct <- round(transcriptome_annotation_whole/sum(transcriptome_annotation_whole)*100)
+lbls <- paste(lbls, pct) # add percents to labels 
+lbls <- paste(lbls,"%",sep="") # ad % to labels 
+pie(transcriptome_annotation_whole,labels = lbls, col=colors,
+    main="Transcriptome Transcript Composition")
+
+
+```
+
+#Generating piRNA and Degradome counts
+
+Since piRNAs are complementary to RNA transcript targets (antisense to the target) or derived directly from targets (sense to the target), we used piRNA mapping to identify these targets in the *Hydra* transcriptome.  
+
+Adapters were trimmed from the WT and Colchicine raw reads using the script trimbiooadapter.sh.  
+
+piRNAs were mapped to the *Hydra* transcriptome using RSEM functions rsem-calculate-expression and rsem-generate-data-matrix was used to generate the count matrix.
+Three mismatches were allowed in the antisense orientation and no mismatches were allowed in the sense orientation. 
+Degradome reads were mapped in the sense orientation with no mismatches since degradome reads are transcript fragments.
+
+piRNA_Deg_rsem_mapping.sh was used for piRNA and Degradome Mapping.  
+
+Results are summarized in the table, "piRNA_Counts_Matrix.txt" and "Degradome_Counts_Matrix.txt", which can be found in the GEO repository (GSE135440).  
+
+#Load and Merge the piRNA and Degradome Count Files
+
+```{r, echo=TRUE, include= TRUE, message= FALSE, warning=FALSE}
+
+piRNA_counts <- read.table("objects/piRNA_Counts_Matrix.txt", sep = "\t", header = T)
+
+Deg_counts <- read.table("objects/Degradome_Counts_Matrix.txt", sep = "\t", header = T)
+
+piRNA_Deg_counts <- merge(piRNA_counts, Deg_counts, by = "ID")
+
+#Merge with Count Files
+
+piRNA_Deg_counts <- merge(Transcript_Characterization, piRNA_Deg_counts, by = "ID")
+
+```
+
+#Generate Normalized piRNA Counts
+
+PIWI targets should have a high density of piRNA counts. We normalize piRNA counts by transcript length to determine piRNA count density.
+
+To determine if the piRNA count density values were significantly different between classes of transcripts, we performed Tukey's Honest Significant Difference test to compare mean piRNA count density between each transcript type (i.e. TE, ncRNA, Unchar., Gene) for each piRNA class (i.e. Hywi Antisense-mapped, Hyli Sense-mapped).  
+
+```{r, echo=TRUE, include= TRUE, message= FALSE, warning=FALSE}
+
+#Determine count density by dividing counts by transcrpt length in kilobases
+
+norm <- (piRNA_Deg_counts$Length/1000)
+
+piRNA_Deg_counts$WT_Hyli_AS_kb <- piRNA_Deg_counts$WT_Hyli_AS/norm
+piRNA_Deg_counts$WT_Hyli_S_kb <- piRNA_Deg_counts$WT_Hyli_S/norm
+piRNA_Deg_counts$WT_Hywi_AS_kb <- piRNA_Deg_counts$WT_Hywi_AS/norm
+piRNA_Deg_counts$WT_Hywi_S_kb <- piRNA_Deg_counts$WT_Hywi_S/norm
+piRNA_Deg_counts$WT_Deg_S_kb <- piRNA_Deg_counts$WT_Deg_S/norm
+piRNA_Deg_counts$Colch_Hyli_AS_kb <- piRNA_Deg_counts$Colch_Hyli_AS/norm
+piRNA_Deg_counts$Colch_Hyli_S_kb <- piRNA_Deg_counts$Colch_Hyli_S/norm
+piRNA_Deg_counts$Colch_Hywi_AS_kb <- piRNA_Deg_counts$Colch_Hywi_AS/norm
+piRNA_Deg_counts$Colch_Hywi_S_kb <- piRNA_Deg_counts$Colch_Hywi_S/norm
+piRNA_Deg_counts$Colch_Deg_S_kb <- piRNA_Deg_counts$Colch_Deg_S/norm
+
+#Perform Tukey's Honest Significant Difference test
+
+#Group normalized mapping counts
+Normalized_Mapping_Counts_Matrix <- piRNA_Deg_counts[,c(22:25,27:30,11)]
+Normalized_Mapping_Counts_Matrix_Formatted <- melt(Normalized_Mapping_Counts_Matrix, id.var = "Transcript_Class")
+
+#Subset count density based on piRNA origin
+WT_Hyli_AS_Stats <- subset(Normalized_Mapping_Counts_Matrix_Formatted, variable == "WT_Hyli_AS_kb")
+WT_Hyli_S_Stats <- subset(Normalized_Mapping_Counts_Matrix_Formatted, variable == "WT_Hyli_S_kb")
+WT_Hywi_AS_Stats <- subset(Normalized_Mapping_Counts_Matrix_Formatted, variable == "WT_Hywi_AS_kb")
+WT_Hywi_S_Stats <- subset(Normalized_Mapping_Counts_Matrix_Formatted, variable == "WT_Hywi_S_kb")
+
+Colch_Hyli_AS_Stats <- subset(Normalized_Mapping_Counts_Matrix_Formatted, variable == "Colch_Hyli_AS_kb")
+Colch_Hyli_S_Stats <- subset(Normalized_Mapping_Counts_Matrix_Formatted, variable == "Colch_Hyli_S_kb")
+Colch_Hywi_AS_Stats <- subset(Normalized_Mapping_Counts_Matrix_Formatted, variable == "Colch_Hywi_AS_kb")
+Colch_Hywi_S_Stats <- subset(Normalized_Mapping_Counts_Matrix_Formatted, variable == "Colch_Hywi_S_kb")
+
+#Develop Tukey Test Function (ANOVA post hoc test)
+
+Tukey_Test <- function(x){
+  res.aov <- aov(value ~ Transcript_Class, data = x)
+  return(TukeyHSD(res.aov))
+}
+
+#Run Tukey Test
+
+Tukey_Test(WT_Hyli_AS_Stats)
+Tukey_Test(WT_Hyli_S_Stats)
+Tukey_Test(WT_Hywi_AS_Stats)
+Tukey_Test(WT_Hywi_S_Stats)
+Tukey_Test(Colch_Hyli_AS_Stats)
+Tukey_Test(Colch_Hyli_S_Stats)
+Tukey_Test(Colch_Hywi_AS_Stats)
+Tukey_Test(Colch_Hywi_S_Stats)
+
+```
+
+#Visualizing piRNA Mapping
+
+Since the range of observed count density values was large, we used a log scale to visualize piRNA count density. For boxplot visualization, we added a pseudocount to the raw piRNA counts to remove any 0 count density values that would return infinite values on a log scale. The pseudocount we chose was 0.01 since that was the lowest fractional count used in our counting strategy. We explored piRNA count density for 1) Whole animals and 2) Epithelial Animals.
+
+```{r, echo=TRUE, include= TRUE, message= FALSE, warning=FALSE}
+
+#Set pseudocount
+
+pseudocount <- 0.01
+
+#Add pseudocount to raw piRNA counts then generate piRNA count density values
+
+boxplot_matrix <- piRNA_Deg_counts[,c(12:19,3,11)]
+boxplot_matrix[,c(1:8)] <- boxplot_matrix[,c(1:8)] + pseudocount
+boxplot_matrix[,c(1:8)] <- boxplot_matrix[,c(1:8)]/(boxplot_matrix$Length/1000)
+
+#Plot whole animal piRNA count density values
+
+wt_matrix_data <- boxplot_matrix[,c(10,1:4)]
+wt_matrix_data_formatted <- melt(wt_matrix_data, id.var = "Transcript_Class")
+colnames(wt_matrix_data_formatted) <- c("Transcript_Class", "piRNA_Origin", "piRNA_Mapping_Density")
+wt_matrix_data_formatted$Transcript_Class<-factor(wt_matrix_data_formatted$Transcript_Class, levels=c("TE", "ncRNA",  "Unchar", "Gene"))
+
+WT_level_order <- c("WT_Hywi_AS","WT_Hywi_S","WT_Hyli_AS","WT_Hyli_S")
+
+WT_boxplot <- ggplot(data = wt_matrix_data_formatted, aes(x= factor(piRNA_Origin, level = WT_level_order), y=piRNA_Mapping_Density), log="y") + geom_boxplot(aes(fill=Transcript_Class)) + scale_y_log10(
+  breaks = scales::trans_breaks("log10", function(x) 10^x),
+  labels = scales::trans_format("log10", scales::math_format(10^.x))
+)
+
+WT_boxplot + scale_fill_manual(values=c("red", "light blue", "grey", "green")) + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank(), axis.line = element_line(colour = "black")) + theme(legend.text=element_text(size=rel(1))) + ggtitle("Whole Animal piRNA Mapping Density")  + theme(plot.title = element_text(hjust = 0.5)) + xlab("piRNA Origin") + ylab("piRNA Mapping Density")
+
+#Plot epithelial animal piRNA count density values
+
+colch_matrix_data <- boxplot_matrix[,c(10,5:8)]
+colch_matrix_data_formatted <- melt(colch_matrix_data, id.var = "Transcript_Class")
+colnames(colch_matrix_data_formatted) <- c("Transcript_Class", "piRNA_Origin", "piRNA_Mapping_Density")
+colch_matrix_data_formatted$Transcript_Class<-factor(colch_matrix_data_formatted$Transcript_Class, levels=c("TE", "ncRNA",  "Unchar", "Gene"))
+
+colch_level_order <- c("Colch_Hywi_AS","Colch_Hywi_S","Colch_Hyli_AS","Colch_Hyli_S")
+
+colch_boxplot <- ggplot(data = colch_matrix_data_formatted, aes(x= factor(piRNA_Origin, level = colch_level_order), y=piRNA_Mapping_Density), log="y") + geom_boxplot(aes(fill=Transcript_Class)) + scale_y_log10(
+  breaks = scales::trans_breaks("log10", function(x) 10^x),
+  labels = scales::trans_format("log10", scales::math_format(10^.x))
+)
+
+colch_boxplot + scale_fill_manual(values=c("red", "light blue", "grey", "green")) + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank(), axis.line = element_line(colour = "black")) + theme(legend.text=element_text(size=rel(1))) + ggtitle("Somatic piRNA Mapping Density")  + theme(plot.title = element_text(hjust = 0.5)) + xlab("piRNA Origin") + ylab("piRNA Mapping Density")
+
+
+#write table that summarizes results
+#write.table(piRNA_Deg_counts, file = "Annotated_piRNA_Degradome_Count_Matrix.txt")
+
+```
+
+### Software versions 
+
+This document was computed on `r format( Sys.time(), "%a %b %d %X %Y" )` with the following R package versions.\
+
+```{r session_summary, echo=FALSE, include=TRUE, comment=NA}
+	sessionInfo()
+```

@@ -1,0 +1,95 @@
+---
+title: "5 Single Cell Data Exploration"
+author: "Bryan Teefy"
+date: "08/09/2019"
+output:
+  pdf_document: default
+  html_document: default
+  word_document: default
+---
+```{r knit_prep, echo=F, results='hide', message=F, warning=F}
+
+library("knitr")
+opts_chunk$set(tidy.opts=list(width.cutoff=80),tidy=TRUE,dev="png",dpi=150)
+
+```
+
+#Load required libraries
+
+```{r, echo=TRUE, include= TRUE, message= FALSE, warning=FALSE}
+
+library(URD)
+library(Seurat)
+
+```
+
+#Single Cell Data Exploration
+
+We analyzed the homeostatic expression patterns of the 36 high mapping gene transcripts upregulated in response to hywi knockdown by interrogating single-cell expression data (Siebert, 2019). To interrogate expression, we used URD spline objects for ectoderm and endoderm. These objects contain expression data for genes that are expressed in at least 1% of the ectodermal or endodermal epithelial cells. We found epithelial expression for 24 of the 36 putative gene targets: 1) nineteen gene transcripts are expressed in both the endodermal and ectodermal epithelial lineages, 2) one transcript is expressed only in the ectodermal epithelial lineage, and 3) four transcripts are expressed only in the endodermal epithelial lineage. No epithelial expression was found for 12 of the gene transcripts, which could indicate low expression in a homeostatic animal. Higher expression at the extremities in both the ectoderm and endoderm and lower expression in body regions would be consistent with Hywi-mediated repression. Putative targets could show high expression. The gene, t14391, shows such a pattern.  
+
+#Load the Necessary Files
+
+```{r, echo=TRUE, include= TRUE, message= FALSE, warning=FALSE}
+
+#Load the list of searchable high mapping genes for each lineage
+
+endo_mappers <- read.table("objects/high_mappers_endo.txt", header = T)
+
+ecto_mappers <- read.table("objects/high_mappers_ecto.txt", header = T)
+
+#Load the seurat object to load the searchable transcript IDs
+#The seurat object (file Hydra_Seurat_Whole_Transcriptome) can be downloaded from Dryad: https://doi.org/10.5061/dryad.v5r6077.
+#After download, place in the "objects" folder
+
+Hydra_Object <- readRDS("objects/Hydra_Seurat_Whole_Transcriptome.rds")
+
+#Load single cell pseudotime objects (spline objects) and High Mapping Gene List
+#The spline objects (file Hydra_URD_analysis_objects) can be downloaded from Dryad: https://doi.org/10.5061/dryad.v5r6077.
+#After download, place in the "objects" folder
+
+endoderm.splines <- readRDS("objects/Splines-Endoderm.rds")
+ectoderm.splines <- readRDS("objects/Splines-Ectoderm.rds")
+
+```
+
+#Data Exploration
+
+```{r, echo=TRUE, include= TRUE, message= FALSE, warning=FALSE}
+
+#Establish hFind function to return the searchable transcript IDs
+
+hFind <- function (x) {
+  return (Hydra_Object@data@Dimnames[[1]][grep(x,Hydra_Object@data@Dimnames[[1]],ignore.case = T)])
+}
+
+#Run hFind function to convert to searchable transcript IDs
+
+endo_mappers$ID <- sapply(endo_mappers$ID,FUN=hFind)
+
+ecto_mappers$ID <- sapply(ecto_mappers$ID,FUN=hFind)
+
+```
+
+
+```{r fig2, fig.height = 20, fig.width = 6, fig.align = "center"}
+#Generate Endodermal Plots
+
+plotSmoothFitMultiCascade(endoderm.splines, genes=endo_mappers$ID[1:12], scaled=F, colors=c("Foot/Body"="#FF8C00", "Tentacle"="#1E90FF", "Hypostome"="#32CD32"),ncol=1)
+
+plotSmoothFitMultiCascade(endoderm.splines, genes=endo_mappers$ID[13:23], scaled=F, colors=c("Foot/Body"="#FF8C00", "Tentacle"="#1E90FF", "Hypostome"="#32CD32"),ncol=1)
+
+#Generate Ectodermal Plots
+
+plotSmoothFitMultiCascade(ectoderm.splines, genes=ecto_mappers$ID[1:9], scaled=F, colors=c("Basal Disc"="#FF8C00", "Body Column"="#000000", "Tentacle"="#1E90FF", "Hypostome"="#32CD32"),ncol=1)
+
+plotSmoothFitMultiCascade(ectoderm.splines, genes=ecto_mappers$ID[10:20], scaled=F, colors=c("Basal Disc"="#FF8C00", "Body Column"="#000000", "Tentacle"="#1E90FF", "Hypostome"="#32CD32"),ncol=1)
+
+```
+
+### Software versions 
+
+This document was computed on `r format( Sys.time(), "%a %b %d %X %Y" )` with the following R package versions.\
+
+```{r session_summary, echo=FALSE, include=TRUE, comment=NA}
+	sessionInfo()
+```

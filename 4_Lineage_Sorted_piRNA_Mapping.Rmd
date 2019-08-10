@@ -1,0 +1,261 @@
+---
+title: "4 Lineage-sorted piRNA Count Generation"
+author: "Bryan Teefy"
+date: "08/09/2019"
+output:
+  pdf_document: default
+  html_document: default
+  word_document: default
+editor_options:
+  chunk_output_type: inline
+---
+
+```{r knit_prep, echo=F, results='hide', message=F, warning=F}
+library("knitr")
+opts_chunk$set(tidy.opts=list(width.cutoff=80),tidy=TRUE, dev="png", dpi=150)
+```
+
+#Load Required Libraries
+
+```{r, echo=TRUE, include= TRUE, message= FALSE, warning=FALSE}
+
+library(dplyr)
+library(reshape2)
+library(ggplot2)
+library(ggpubr)
+library(VennDiagram)
+
+```
+
+#Explore Lineage-sorted piRNA Diversity
+
+To explore the diversity of piRNAs in different lineages, we identified the unique piRNAs in each lineage as well as the piRNAs species that were present in multiple lineages.  
+
+Trimmed piRNAs from Whole Animals were cross-referenced against lineage-sorted piRNA libraries (Juliano *et al*., 2014) to retain lineage-specific piRNAs.  
+
+Lineage-specific piRNAs were saved in a R dataframe using the script, "Unique_piRNA_Generation.R" which uses the script, "run_lin_sorting.sh".   
+
+Unique and shared piRNAs were visualized using a Venn Diagram.  
+
+```{r, echo=TRUE, include= TRUE, message= FALSE, warning=FALSE}
+
+#Load unique piRNA sequences sorted by lineage and protein origin
+
+load("objects/Unique_Ecto_Hyli_piRNAs.Rda")
+
+load("objects/Unique_Ecto_Hywi_piRNAs.Rda")
+
+load("objects/Unique_Endo_Hyli_piRNAs.Rda")
+
+load("objects/Unique_Endo_Hywi_piRNAs.Rda")
+
+load("objects/Unique_Int_Hyli_piRNAs.Rda")
+
+load("objects/Unique_Int_Hywi_piRNAs.Rda")
+
+#Count the number of unique piRNAs per lineage
+
+PIWI_Ecto <- merge(EctoHyli, EctoHywi, by = "seq", all = TRUE)
+rm(EctoHyli,EctoHywi)
+
+PIWI_Endo <- merge(EndoHyli, EndoHywi, by = "seq", all = TRUE)
+rm(EndoHyli,EndoHywi)
+
+PIWI_Int <- merge(IntHyli, IntHywi, by = "seq", all = TRUE)
+rm(IntHyli,IntHywi)
+
+#Visualize shared and unique piRNA species by lineage
+
+Venn <- list(Ectodermal_piRNAs = PIWI_Ecto$seq, Endodermal_piRNAs = PIWI_Endo$seq, Interstitial_piRNAs = PIWI_Int$seq)
+
+venn.plot <- venn.diagram(Venn,filename = NULL, fill = c("blue", "red", "yellow"))
+grid.draw(venn.plot)
+
+rm(PIWI_Ecto,PIWI_Endo,PIWI_Int,Venn,venn.plot)
+
+```
+
+#Generate Lineage-sorted piRNA Retaining Abundancies
+
+To investigate piRNA targeting in each of the three cell lineages in *Hydra*, we cross-referenced lineage-specific small RNA libraries with the piRNA pulldown libraries from whole animals to generate lineage-specific piRNA libraries.  
+
+Trimmed piRNAs from Whole Animals were cross-referenced against lineage-sorted small RNA libraries (Juliano *et al*., 2014) to retain only those piRNAs present in both libraries. Crucially, piRNA copy number from the piRNA pulldowns was maintained using the script, "small_RNA_piRNA_contrast.R" which uses the script, "run_contrast.sh".  
+
+The resultant lineage-sorted piRNA FASTA files were mapped to the *Hydra* transcriptome using RSEM functions rsem-calculate-expression and rsem-generate-data-matrix to generate a count matrix as in RMD 1.  
+ 
+Lineage-sorted piRNA mapping results are summarized in the table, "lin_rsem_piRNA_matrix.txt".  
+
+#Load Transcriptome Annotation Matrix and Lineage-sorted piRNA Mapping Results
+
+```{r, echo=TRUE, include= TRUE, message= FALSE, warning=FALSE}
+
+piRNA_Deg_counts <- read.table("objects/Annotated_piRNA_Degradome_Count_Matrix.txt", sep="\t", check.names = FALSE, header = TRUE)
+
+lin_matrix <- read.table("objects/lin_rsem_piRNA_matrix.txt", sep = "\t", header = T)
+
+```
+
+#Generate Normalized piRNA Mapping Density Values
+
+PIWI targets should have a high density of piRNA counts. We normalize piRNA counts by transcript length to determine piRNA count density.
+
+To determine if the piRNA count density values were significantly different between classes of transcripts, we performed Tukey's Honest Significant Difference test to compare mean piRNA count density between each transcript type (i.e. TE, ncRNA, Unchar., Gene) for each piRNA class (i.e. Hywi Antisense-mapped, Hyli Sense-mapped, etc.).  
+
+```{r, echo=TRUE, include= TRUE, message= FALSE, warning=FALSE}
+
+#Merge lineage sorted piRNA counts with trancript length and transcript class data
+
+lin_matrix <- merge(lin_matrix, piRNA_Deg_counts[,c(1,3,11)], by = "ID")
+
+#To generate epithelial count values, take the mean of combined ectodermal and endodermal counts
+
+lin_matrix$epi_Hyli_AS <- (lin_matrix$Ecto_Hyli_AS.isoforms.results + lin_matrix$Endo_Hyli_AS.isoforms.results)/2
+
+lin_matrix$epi_Hyli_S <- (lin_matrix$Ecto_Hyli_S.isoforms.results + lin_matrix$Endo_Hyli_S.isoforms.results)/2
+
+lin_matrix$epi_Hywi_AS <- (lin_matrix$Ecto_Hywi_AS.isoforms.results + lin_matrix$Endo_Hywi_AS.isoforms.results)/2
+
+lin_matrix$epi_Hywi_S <- (lin_matrix$Ecto_Hywi_S.isoforms.results + lin_matrix$Endo_Hywi_S.isoforms.results)/2
+
+#Calculate piRNA count density by dividing by counts by length in kilobases
+
+norm <- (lin_matrix$Length/1000)
+
+lin_matrix$epi_Hyli_AS_kb <- lin_matrix$epi_Hyli_AS/norm
+
+lin_matrix$epi_Hyli_S_kb <- lin_matrix$epi_Hyli_S/norm
+
+lin_matrix$epi_Hywi_AS_kb <- lin_matrix$epi_Hywi_AS/norm
+
+lin_matrix$epi_Hywi_S_kb <- lin_matrix$epi_Hywi_S/norm
+
+#Generate interstitial piRNA count density values
+
+lin_matrix$int_Hyli_AS_kb <- lin_matrix$Int_Hyli_AS.isoforms.results/norm
+
+lin_matrix$int_Hyli_S_kb <- lin_matrix$Int_Hyli_S.isoforms.results/norm
+
+lin_matrix$int_Hywi_AS_kb <- lin_matrix$Int_Hywi_AS.isoforms.results/norm
+
+lin_matrix$int_Hywi_S_kb <- lin_matrix$Int_Hywi_S.isoforms.results/norm
+
+#Perform Tukey's Honest Significant Difference test
+
+#Group normalized mapping counts
+
+Normalized_Mapping_Counts_Matrix <- lin_matrix[,c(20:27,15)]
+
+Feeder_Plots <- melt(Normalized_Mapping_Counts_Matrix, id.var = "Transcript_Class")
+
+#Subset count density based on piRNA origin
+
+epi_Hyli_AS_kb_Stats <- subset(Feeder_Plots, variable == "epi_Hyli_AS_kb")
+epi_Hyli_S_kb_Stats <- subset(Feeder_Plots, variable == "epi_Hyli_S_kb")
+epi_Hywi_AS_kb_Stats <- subset(Feeder_Plots, variable == "epi_Hywi_AS_kb")
+epi_Hywi_S_kb_Stats <- subset(Feeder_Plots, variable == "epi_Hywi_S_kb")
+
+int_Hyli_AS_kb_Stats <- subset(Feeder_Plots, variable == "int_Hyli_AS_kb")
+int_Hyli_S_kb_Stats <- subset(Feeder_Plots, variable == "int_Hyli_S_kb")
+int_Hywi_AS_kb_Stats <- subset(Feeder_Plots, variable == "int_Hywi_AS_kb")
+int_Hywi_S_kb_Stats <- subset(Feeder_Plots, variable == "int_Hywi_S_kb")
+
+#Develop Tukey Test Function
+
+Tukey_Test <- function(x){
+  res.aov <- aov(value ~ Transcript_Class, data = x)
+  return(TukeyHSD(res.aov))
+}
+
+#Run Tukey Test
+
+Tukey_Test(epi_Hyli_AS_kb_Stats)
+Tukey_Test(epi_Hyli_S_kb_Stats)
+Tukey_Test(epi_Hywi_AS_kb_Stats)
+Tukey_Test(epi_Hywi_S_kb_Stats)
+
+Tukey_Test(int_Hyli_AS_kb_Stats)
+Tukey_Test(int_Hyli_S_kb_Stats)
+Tukey_Test(int_Hywi_AS_kb_Stats)
+Tukey_Test(int_Hywi_S_kb_Stats)
+
+```
+
+#Visualizing piRNA Mapping
+
+Since the range of observed count density values was large, we used a log scale to visualize piRNA count density. For boxplot visualization, we added a pseudocount to the raw piRNA counts to remove any 0 count density values that would return infinite values on a log scale. The pseudocount we chose was 0.01 since that was the lowest fractional count administered by our counting strategy. We explored piRNA count density for 1) Epithelial piRNAs and 2) Interstitial piRNAs.  
+
+```{r, echo=TRUE, include= TRUE, message= FALSE, warning=FALSE}
+
+#Create pseudocount
+
+pseudocount <- 0.01
+
+#Add pseudocount to raw piRNA counts then generate piRNA count density values for epithelial piRNAs
+
+boxplot_matrix <- lin_matrix[,c(2:15)]
+boxplot_matrix[,c(1:12)] <- boxplot_matrix[,c(1:12)] + pseudocount
+
+boxplot_matrix$epi_Hyli_AS <- (boxplot_matrix$Ecto_Hyli_AS.isoforms.results + boxplot_matrix$Endo_Hyli_AS.isoforms.results)/2
+
+boxplot_matrix$epi_Hyli_S <- (boxplot_matrix$Ecto_Hyli_S.isoforms.results + boxplot_matrix$Endo_Hyli_S.isoforms.results)/2
+
+boxplot_matrix$epi_Hywi_AS <- (boxplot_matrix$Ecto_Hywi_AS.isoforms.results + boxplot_matrix$Endo_Hywi_AS.isoforms.results)/2
+
+boxplot_matrix$epi_Hywi_S <- (boxplot_matrix$Ecto_Hywi_S.isoforms.results + boxplot_matrix$Endo_Hywi_S.isoforms.results)/2
+
+boxplot_matrix[,c(15:18)] <- boxplot_matrix[,c(15:18)]/(boxplot_matrix$Length/1000)
+
+#Plot epithelial piRNA count density values
+
+epi_matrix_feeder <- boxplot_matrix[,c(14,15:18)]
+epi_matrix_plotter <- melt(epi_matrix_feeder, id.var = "Transcript_Class")
+colnames(epi_matrix_plotter) <- c("Transcript_Class", "piRNA_Origin", "piRNA_Mapping_Density")
+epi_matrix_plotter$Transcript_Class<-factor(epi_matrix_plotter$Transcript_Class, levels=c("TE", "ncRNA",  "Unchar", "Gene"))
+
+epi_level_order <- c("epi_Hyli_AS","epi_Hyli_S","epi_Hywi_AS","epi_Hywi_S")
+
+epi_boxplot <- ggplot(data = epi_matrix_plotter, aes(x= factor(piRNA_Origin, level = epi_level_order), y=piRNA_Mapping_Density), log="y") + geom_boxplot(aes(fill=Transcript_Class)) + scale_y_log10(
+  breaks = scales::trans_breaks("log10", function(x) 10^x),
+  labels = scales::trans_format("log10", scales::math_format(10^.x))
+)
+
+epi_boxplot + scale_fill_manual(values=c("red", "light blue", "grey", "green")) + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank(), axis.line = element_line(colour = "black")) + theme(legend.text=element_text(size=rel(1))) + ggtitle("Eptihelial piRNA Mapping Density")  + theme(plot.title = element_text(hjust = 0.5)) + xlab("piRNA Origin") + ylab("piRNA Mapping Density")
+
+#Add pseudocount to raw piRNA counts then generate piRNA count density values for interstitial piRNAs
+
+boxplot_matrix$int_Hyli_AS <- (boxplot_matrix$Int_Hyli_AS.isoforms.results + boxplot_matrix$Int_Hyli_AS.isoforms.results)/2
+
+boxplot_matrix$int_Hyli_S <- (boxplot_matrix$Int_Hyli_S.isoforms.results + boxplot_matrix$Int_Hyli_S.isoforms.results)/2
+
+boxplot_matrix$int_Hywi_AS <- (boxplot_matrix$Int_Hywi_AS.isoforms.results + boxplot_matrix$Int_Hywi_AS.isoforms.results)/2
+
+boxplot_matrix$int_Hywi_S <- (boxplot_matrix$Int_Hywi_S.isoforms.results + boxplot_matrix$Int_Hywi_S.isoforms.results)/2
+
+boxplot_matrix[,c(19:22)] <- boxplot_matrix[,c(19:22)]/(boxplot_matrix$Length/1000)
+
+#Plot interstitial piRNA count density values
+
+int_matrix_feeder <- boxplot_matrix[,c(14,19:22)]
+int_matrix_plotter <- melt(int_matrix_feeder, id.var = "Transcript_Class")
+colnames(int_matrix_plotter) <- c("Transcript_Class", "piRNA_Origin", "piRNA_Mapping_Density")
+int_matrix_plotter$Transcript_Class<-factor(int_matrix_plotter$Transcript_Class, levels=c("TE", "ncRNA",  "Unchar", "Gene"))
+
+int_level_order <- c("int_Hyli_AS","int_Hyli_S","int_Hywi_AS","int_Hywi_S")
+
+int_boxplot <- ggplot(data = int_matrix_plotter, aes(x= factor(piRNA_Origin, level = int_level_order), y=piRNA_Mapping_Density), log="y") + geom_boxplot(aes(fill=Transcript_Class)) + scale_y_log10(
+  breaks = scales::trans_breaks("log10", function(x) 10^x),
+  labels = scales::trans_format("log10", scales::math_format(10^.x))
+)
+
+int_boxplot + scale_fill_manual(values=c("red", "light blue", "grey", "green")) + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank(), axis.line = element_line(colour = "black")) + theme(legend.text=element_text(size=rel(1))) + ggtitle("Interstitial Mapping Density")  + theme(plot.title = element_text(hjust = 0.5)) + xlab("piRNA Origin") + ylab("piRNA Mapping Density")
+
+
+```
+
+### Software versions 
+
+This document was computed on `r format( Sys.time(), "%a %b %d %X %Y" )` with the following R package versions.\
+
+```{r session_summary, echo=FALSE, include=TRUE, comment=NA}
+	sessionInfo()
+```
