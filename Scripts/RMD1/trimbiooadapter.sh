@@ -1,7 +1,8 @@
 #!/bin/bash -l
 #SBATCH --job-name=trimbioo
 #SBATCH -c 1
-#SBATCH --mem=20G
+#SBATCH --mem=200G
+#SBATCH -t 10:00:00
 #SBATCH --error=trimbioo.err
 #SBATCH --output=trimbioo.out
 

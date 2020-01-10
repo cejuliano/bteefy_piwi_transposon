@@ -1,7 +1,7 @@
 ---
 title: "4 Lineage-sorted piRNA Count Generation"
 author: "Bryan Teefy"
-date: "08/09/2019"
+date: "12/20/2019"
 output:
   pdf_document: default
   html_document: default
@@ -27,71 +27,133 @@ library(VennDiagram)
 
 ```
 
-#Explore Lineage-sorted piRNA Diversity
+#Set Copy Number Thresholds for small RNA sequences
 
-To explore the diversity of piRNAs in different lineages, we identified the unique piRNAs in each lineage as well as the piRNAs species that were present in multiple lineages.  
+To determine which piRNA sequences might be unique to each of the three cell lineages in *Hydra*, we contrasted our Whole Animal Hywi and Hyli piRNA datasets with FAC-sorted lineage-specific small RNA libraries (Juliano *et al*., 2014).  
 
-Trimmed piRNAs from Whole Animals were cross-referenced against lineage-sorted piRNA libraries (Juliano *et al*., 2014) to retain lineage-specific piRNAs.  
+To control for the abundance of common versus exclusive piRNAs in our downstream analysis, we initially filtered out the lower copy small RNAs from each dataset. The threshold chosen for each dataset was 4 copies based on count frequency distributions visualized below.  
 
-Lineage-specific piRNAs were saved in a R dataframe using the script, "Unique_piRNA_Generation.R" which uses the script, "run_lin_sorting.sh".   
+First, small RNA files were mapped to the *Hydra* transcriptome using Bowtie v1.1.2 using the shell script, "sRNA_mapping.sh."    
+The options "--best --strata -k 1" were used because at this stage, mapping all possible hits was not yet necessary.  
 
-Unique and shared piRNAs were visualized using a Venn Diagram.  
+Copy number of unique piRNA sequences were quantified from BAM files generated from small RNA mapping using the script "get_pos_small_RNA.sh." This script made use of the perl scripts "get_rep_piRNA_sense_BT.perl" and "get_rep_piRNA_antisense_BT.perl".  
+
+Plots of sequence copy number frequency were generated using the R script, "plot_gen.R" and run with the script, "run_plot_gen.sh."  
+
+Plots for each lineage and mapping orientation are visualized below.  
 
 ```{r, echo=TRUE, include= TRUE, message= FALSE, warning=FALSE}
+#Sense
+#Ecto
 
-#Load unique piRNA sequences sorted by lineage and protein origin
+Ect_S_plot <- read.table("objects/Ect_S_plot")
+A <- ggplot(data=Ect_S_plot, aes(x=Var1, y=Freq, group=1)) +
+  geom_line()+
+  geom_point()
+rm(Ect_S)
+rm(Ect_S_plot)
 
-load("objects/Unique_Ecto_Hyli_piRNAs.Rda")
+#Endo
 
-load("objects/Unique_Ecto_Hywi_piRNAs.Rda")
+End_S_plot <- read.table("objects/End_S_plot")
+B <- ggplot(data=End_S_plot, aes(x=Var1, y=Freq, group=1)) +
+  geom_line()+
+  geom_point()
+rm(End_S)
+rm(End_S_plot)
 
-load("objects/Unique_Endo_Hyli_piRNAs.Rda")
+#Int
 
-load("objects/Unique_Endo_Hywi_piRNAs.Rda")
+Int_S_plot <- read.table("objects/Int_S_plot")
+C <- ggplot(data=Int_S_plot, aes(x=Var1, y=Freq, group=1)) +
+  geom_line()+
+  geom_point()
+rm(Int_S)
+rm(Int_S_plot)
 
-load("objects/Unique_Int_Hyli_piRNAs.Rda")
+#Antisense
+#Ecto
 
-load("objects/Unique_Int_Hywi_piRNAs.Rda")
+Ect_AS_plot <- read.table("objects/Ect_AS_plot")
+D <- ggplot(data=Ect_AS_plot, aes(x=Var1, y=Freq, group=1)) +
+  geom_line()+
+  geom_point()
+rm(Ect_AS)
+rm(Ect_AS_plot)
 
-#Count the number of unique piRNAs per lineage
+#Endo
 
-PIWI_Ecto <- merge(EctoHyli, EctoHywi, by = "seq", all = TRUE)
-rm(EctoHyli,EctoHywi)
+End_AS_plot <- read.table("objects/End_AS_plot")
+E <- ggplot(data=End_AS_plot, aes(x=Var1, y=Freq, group=1)) +
+  geom_line()+
+  geom_point()
+rm(End_AS)
+rm(End_AS_plot)
 
-PIWI_Endo <- merge(EndoHyli, EndoHywi, by = "seq", all = TRUE)
-rm(EndoHyli,EndoHywi)
+#Int
 
-PIWI_Int <- merge(IntHyli, IntHywi, by = "seq", all = TRUE)
-rm(IntHyli,IntHywi)
+Int_AS_plot <- read.table("objects/Int_AS_plot")
+G <- ggplot(data=Int_AS_plot, aes(x=Var1, y=Freq, group=1)) +
+  geom_line()+
+  geom_point()
 
-#Visualize shared and unique piRNA species by lineage
+rm(Int_AS)
+rm(Int_AS_plot)
 
-Venn <- list(Ectodermal_piRNAs = PIWI_Ecto$seq, Endodermal_piRNAs = PIWI_Endo$seq, Interstitial_piRNAs = PIWI_Int$seq)
 
-venn.plot <- venn.diagram(Venn,filename = NULL, fill = c("blue", "red", "yellow"))
-grid.draw(venn.plot)
+#Plot
 
-rm(PIWI_Ecto,PIWI_Endo,PIWI_Int,Venn,venn.plot)
+A <- A + geom_vline(xintercept = 4, color = "red") + scale_x_discrete(breaks=seq(0, 50, 5)) + ggtitle("Ectodermal Sense") + theme(plot.title = element_text(hjust = 0.5,size=10), axis.title.x = element_text(size = 8), axis.title.y = element_text(size = 8), axis.text.y = element_text(size = 8), axis.text.x = element_text(size = 8)) + xlab("Sequence Copy Number") + ylab("Frequency")
+
+B <- B + geom_vline(xintercept = 4, color = "red") + scale_x_discrete(breaks=seq(0, 50, 5)) + ggtitle("Endodermal Sense") + theme(plot.title = element_text(hjust = 0.5,size=10), axis.title.x = element_text(size = 8), axis.title.y = element_text(size = 8), axis.text.y = element_text(size = 8), axis.text.x = element_text(size = 8)) + xlab("Sequence Copy Number") + ylab("Frequency")
+
+C <- C + geom_vline(xintercept = 4, color = "red") + scale_x_discrete(breaks=seq(0, 50, 5)) + ggtitle("Interstitial Sense") + theme(plot.title = element_text(hjust = 0.5,size=10), axis.title.x = element_text(size = 8), axis.title.y = element_text(size = 8), axis.text.y = element_text(size = 8), axis.text.x = element_text(size = 8)) + xlab("Sequence Copy Number") + ylab("Frequency")
+
+
+D <- D + geom_vline(xintercept = 4, color = "red") + scale_x_discrete(breaks=seq(0, 50, 5)) + ggtitle("Ectodermal Antisense") + theme(plot.title = element_text(hjust = 0.5,size=10), axis.title.x = element_text(size = 8), axis.title.y = element_text(size = 8), axis.text.y = element_text(size = 8), axis.text.x = element_text(size = 8)) + xlab("Sequence Copy Number") + ylab("Frequency")
+
+
+E <- E + geom_vline(xintercept = 4, color = "red") + scale_x_discrete(breaks=seq(0, 50, 5)) + ggtitle("Endodermal Antisense") + theme(plot.title = element_text(hjust = 0.5,size=10), axis.title.x = element_text(size = 8), axis.title.y = element_text(size = 8), axis.text.y = element_text(size = 8), axis.text.x = element_text(size = 8)) + xlab("Sequence Copy Number") + ylab("Frequency")
+
+
+G <- G + geom_vline(xintercept = 4, color = "red") + scale_x_discrete(breaks=seq(0, 50, 5)) + ggtitle("Interstitial Antisense") + theme(plot.title = element_text(hjust = 0.5,size=10), axis.title.x = element_text(size = 8), axis.title.y = element_text(size = 8), axis.text.y = element_text(size = 8), axis.text.x = element_text(size = 8)) + xlab("Sequence Copy Number") + ylab("Frequency")
+
+# Arrange 
+ggarrange(A,D,B,E,C,G, ncol = 2, nrow = 3, labels = c("B","C","D","E","F","G"))
 
 ```
 
-#Generate Lineage-sorted piRNA Retaining Abundancies
+#Generate Lineage-sorted piRNA Libraries
 
-To investigate piRNA targeting in each of the three cell lineages in *Hydra*, we cross-referenced lineage-specific small RNA libraries with the piRNA pulldown libraries from whole animals to generate lineage-specific piRNA libraries.  
+As stated above, to control for the abundance of common versus exclusive piRNAs in our downstream analysis, we removed small RNAs sequences from each library with a copy number of fewer than 4. This was done using the R script, "remove_low_copy_RNAs.R" and run using the script, "run_remove_low_copy_RNAs.sh."  
 
-Trimmed piRNAs from Whole Animals were cross-referenced against lineage-sorted small RNA libraries (Juliano *et al*., 2014) to retain only those piRNAs present in both libraries. Crucially, piRNA copy number from the piRNA pulldowns was maintained using the script, "small_RNA_piRNA_contrast.R" which uses the script, "run_contrast.sh".  
+In order to more easily contrast piRNA and small RNA sequences, the trimmed piRNA fastq libraries and the trimmed small RNA fastq files were converted to dataframes that retained 1) sequences and 2) fastq headers using the script, "RNA_Table_Generation.R" and run using the script, "run_RNA_Table_Generation.sh."  
 
-The resultant lineage-sorted piRNA FASTA files were mapped to the *Hydra* transcriptome using RSEM functions rsem-calculate-expression and rsem-generate-data-matrix to generate a count matrix as in RMD 1.  
- 
-Lineage-sorted piRNA mapping results are summarized in the table, "lin_rsem_piRNA_matrix.txt".  
+The small RNA library dataframes were then contrasted with the small RNA sequences with 4 or greater copies using the script, "filtering_small_RNAs_under_four.R" and run with the script, "run_filtering_small_RNAs_under_four.sh." This generated small RNA dataframes consisting of only those small RNAs whose copy numbers were 4 or greater.  
+
+Next, piRNA and small RNA dataframes were contrasted such that only matching sequences were retained. Crucially, sequence copy number was reflective of the small RNA library so lineage-specific piRNA abundancies were reflected. This was done using the script, "piRNA_contrast_with_over_four_small_RNAs.R" and run using the script, "run_piRNA_contrast_with_over_four_small_RNAs.sh."  
+
+To map the resultant lineage-specific piRNA libraries, they were converted into FASTA files using the script, "make_fasta_from_piRNA_sRNA_cross.R" and run using the script, "run_make_fasta_from_piRNA_sRNA_cross.sh"  
+
+Lineage-specific piRNA FASTA files were mapped as in RMD1 using Bowtie v1.1.2 while allowing for no mismatches in the sense orientation and three mismatches in the antisense orientation using the script, "sRNA_map_bowtie.sh."  
+
+Count files were then generated fractionally as in RMD1 using the script, "sRNA_Count_Matrix.R" and run using the script, "run_sRNA_Count_Matrix.sh."  The lineage-sorted count matrix is imported below.  
 
 #Load Transcriptome Annotation Matrix and Lineage-sorted piRNA Mapping Results
 
 ```{r, echo=TRUE, include= TRUE, message= FALSE, warning=FALSE}
 
-piRNA_Deg_counts <- read.table("objects/Annotated_piRNA_Degradome_Count_Matrix.txt", sep="\t", check.names = FALSE, header = TRUE)
+Read_Counts_Master_DF <- read.table("objects/Annotated_piRNA_Degradome_DGE_Count_Matrix.txt", sep = "\t")
 
-lin_matrix <- read.table("objects/lin_rsem_piRNA_matrix.txt", sep = "\t", header = T)
+#Retain only transcript Length and Classification
+
+Length_and_Class <- Read_Counts_Master_DF[,c(1,3,11)]
+
+#Import Lineage-specific piRNA count matrix
+
+Bowtie_small_RNAs <- read.table("objects/small_RNA_Count_Matrix.txt", header = T)
+
+Bowtie_small_RNAs <- merge(Length_and_Class, Bowtie_small_RNAs, by = "ID", all = T)
 
 ```
 
@@ -103,63 +165,39 @@ To determine if the piRNA count density values were significantly different betw
 
 ```{r, echo=TRUE, include= TRUE, message= FALSE, warning=FALSE}
 
-#Merge lineage sorted piRNA counts with trancript length and transcript class data
+#Generate RPK values
 
-lin_matrix <- merge(lin_matrix, piRNA_Deg_counts[,c(1,3,11)], by = "ID")
+norm <- (Bowtie_small_RNAs$Length/1000)
 
-#To generate epithelial count values, take the mean of combined ectodermal and endodermal counts
+Bowtie_small_RNAs[,c(16:27)] <- Bowtie_small_RNAs[,c(4:15)]/norm
 
-lin_matrix$epi_Hyli_AS <- (lin_matrix$Ecto_Hyli_AS.isoforms.results + lin_matrix$Endo_Hyli_AS.isoforms.results)/2
+colnames(Bowtie_small_RNAs)[16:27] <- c("Endo_Hyli_AS_RPK", "Endo_Hyli_S_RPK", "Endo_Hywi_AS_RPK", "Endo_Hywi_S_RPK", "Ecto_Hyli_AS_RPK", "Ecto_Hyli_S_RPK", "Ecto_Hywi_AS_RPK", "Ecto_Hywi_S_RPK", "Int_Hyli_AS_RPK", "Int_Hyli_S_RPK", "Int_Hywi_AS_RPK", "Int_Hywi_S_RPK")
 
-lin_matrix$epi_Hyli_S <- (lin_matrix$Ecto_Hyli_S.isoforms.results + lin_matrix$Endo_Hyli_S.isoforms.results)/2
 
-lin_matrix$epi_Hywi_AS <- (lin_matrix$Ecto_Hywi_AS.isoforms.results + lin_matrix$Endo_Hywi_AS.isoforms.results)/2
+#only keep normalized counts
+Normalized_Mapping_Counts_Matrix <- Bowtie_small_RNAs[,c(3,16:27)]
 
-lin_matrix$epi_Hywi_S <- (lin_matrix$Ecto_Hywi_S.isoforms.results + lin_matrix$Endo_Hywi_S.isoforms.results)/2
-
-#Calculate piRNA count density by dividing by counts by length in kilobases
-
-norm <- (lin_matrix$Length/1000)
-
-lin_matrix$epi_Hyli_AS_kb <- lin_matrix$epi_Hyli_AS/norm
-
-lin_matrix$epi_Hyli_S_kb <- lin_matrix$epi_Hyli_S/norm
-
-lin_matrix$epi_Hywi_AS_kb <- lin_matrix$epi_Hywi_AS/norm
-
-lin_matrix$epi_Hywi_S_kb <- lin_matrix$epi_Hywi_S/norm
-
-#Generate interstitial piRNA count density values
-
-lin_matrix$int_Hyli_AS_kb <- lin_matrix$Int_Hyli_AS.isoforms.results/norm
-
-lin_matrix$int_Hyli_S_kb <- lin_matrix$Int_Hyli_S.isoforms.results/norm
-
-lin_matrix$int_Hywi_AS_kb <- lin_matrix$Int_Hywi_AS.isoforms.results/norm
-
-lin_matrix$int_Hywi_S_kb <- lin_matrix$Int_Hywi_S.isoforms.results/norm
-
-#Perform Tukey's Honest Significant Difference test
-
-#Group normalized mapping counts
-
-Normalized_Mapping_Counts_Matrix <- lin_matrix[,c(20:27,15)]
-
-Feeder_Plots <- melt(Normalized_Mapping_Counts_Matrix, id.var = "Transcript_Class")
+Normalized_Mapping_Counts_Matrix_Formatted <- melt(Normalized_Mapping_Counts_Matrix, id.var = "Transcript_Class")
 
 #Subset count density based on piRNA origin
+Endo_Hyli_AS_Stats <- subset(Normalized_Mapping_Counts_Matrix_Formatted, variable == "Endo_Hyli_AS_RPK")
+Ecto_Hyli_AS_Stats <- subset(Normalized_Mapping_Counts_Matrix_Formatted, variable == "Ecto_Hyli_AS_RPK")
+Int_Hyli_AS_Stats <- subset(Normalized_Mapping_Counts_Matrix_Formatted, variable == "Int_Hyli_AS_RPK")
 
-epi_Hyli_AS_kb_Stats <- subset(Feeder_Plots, variable == "epi_Hyli_AS_kb")
-epi_Hyli_S_kb_Stats <- subset(Feeder_Plots, variable == "epi_Hyli_S_kb")
-epi_Hywi_AS_kb_Stats <- subset(Feeder_Plots, variable == "epi_Hywi_AS_kb")
-epi_Hywi_S_kb_Stats <- subset(Feeder_Plots, variable == "epi_Hywi_S_kb")
+Endo_Hywi_AS_Stats <- subset(Normalized_Mapping_Counts_Matrix_Formatted, variable == "Endo_Hywi_AS_RPK")
+Ecto_Hywi_AS_Stats <- subset(Normalized_Mapping_Counts_Matrix_Formatted, variable == "Ecto_Hywi_AS_RPK")
+Int_Hywi_AS_Stats <- subset(Normalized_Mapping_Counts_Matrix_Formatted, variable == "Int_Hywi_AS_RPK")
 
-int_Hyli_AS_kb_Stats <- subset(Feeder_Plots, variable == "int_Hyli_AS_kb")
-int_Hyli_S_kb_Stats <- subset(Feeder_Plots, variable == "int_Hyli_S_kb")
-int_Hywi_AS_kb_Stats <- subset(Feeder_Plots, variable == "int_Hywi_AS_kb")
-int_Hywi_S_kb_Stats <- subset(Feeder_Plots, variable == "int_Hywi_S_kb")
+Endo_Hyli_S_Stats <- subset(Normalized_Mapping_Counts_Matrix_Formatted, variable == "Endo_Hyli_S_RPK")
+Ecto_Hyli_S_Stats <- subset(Normalized_Mapping_Counts_Matrix_Formatted, variable == "Ecto_Hyli_S_RPK")
+Int_Hyli_S_Stats <- subset(Normalized_Mapping_Counts_Matrix_Formatted, variable == "Int_Hyli_S_RPK")
 
-#Develop Tukey Test Function
+Endo_Hywi_S_Stats <- subset(Normalized_Mapping_Counts_Matrix_Formatted, variable == "Endo_Hywi_S_RPK")
+Ecto_Hywi_S_Stats <- subset(Normalized_Mapping_Counts_Matrix_Formatted, variable == "Ecto_Hywi_S_RPK")
+Int_Hywi_S_Stats <- subset(Normalized_Mapping_Counts_Matrix_Formatted, variable == "Int_Hywi_S_RPK")
+
+
+#Develop Tukey Test Function (ANOVA post hoc test)
 
 Tukey_Test <- function(x){
   res.aov <- aov(value ~ Transcript_Class, data = x)
@@ -168,88 +206,123 @@ Tukey_Test <- function(x){
 
 #Run Tukey Test
 
-Tukey_Test(epi_Hyli_AS_kb_Stats)
-Tukey_Test(epi_Hyli_S_kb_Stats)
-Tukey_Test(epi_Hywi_AS_kb_Stats)
-Tukey_Test(epi_Hywi_S_kb_Stats)
+Tukey_Test(Int_Hywi_AS_Stats)
+Tukey_Test(Int_Hyli_AS_Stats)
+Tukey_Test(Int_Hywi_S_Stats)
+Tukey_Test(Int_Hyli_S_Stats)
 
-Tukey_Test(int_Hyli_AS_kb_Stats)
-Tukey_Test(int_Hyli_S_kb_Stats)
-Tukey_Test(int_Hywi_AS_kb_Stats)
-Tukey_Test(int_Hywi_S_kb_Stats)
+Tukey_Test(Endo_Hywi_AS_Stats)
+Tukey_Test(Endo_Hyli_AS_Stats)
+Tukey_Test(Endo_Hywi_S_Stats)
+Tukey_Test(Endo_Hyli_S_Stats)
+
+Tukey_Test(Ecto_Hywi_AS_Stats)
+Tukey_Test(Ecto_Hyli_AS_Stats)
+Tukey_Test(Ecto_Hywi_S_Stats)
+Tukey_Test(Ecto_Hyli_S_Stats)
 
 ```
 
 #Visualizing piRNA Mapping
 
-Since the range of observed count density values was large, we used a log scale to visualize piRNA count density. For boxplot visualization, we added a pseudocount to the raw piRNA counts to remove any 0 count density values that would return infinite values on a log scale. The pseudocount we chose was 0.01 since that was the lowest fractional count administered by our counting strategy. We explored piRNA count density for 1) Epithelial piRNAs and 2) Interstitial piRNAs.  
+Since the range of observed count density values was large, we used a log scale to visualize piRNA count density. For violin plot visualization, we added a pseudocount to the raw piRNA counts to remove any 0 count density values that would return infinite values on a log scale. Violin plots allow for the visualization of high mapping outliers in the TE category. The pseudocount we chose was 0.001 since that approximated the lowest fractional count administered by our counting strategy. We explored piRNA count density for 1) Interstitial piRNAs and 2) Epithelial piRNAs.  
 
 ```{r, echo=TRUE, include= TRUE, message= FALSE, warning=FALSE}
 
 #Create pseudocount
+pseudocount <- .001
 
-pseudocount <- 0.01
+#Create a count matrix with transcript length and classification retained
+count_matrix <- Bowtie_small_RNAs[,c(4:15,2,3)]
 
-#Add pseudocount to raw piRNA counts then generate piRNA count density values for epithelial piRNAs
+#Take the average of Endo and Ecto to generate Epithelial Counts
+count_matrix$Epi_Hyli_AS <- (count_matrix$Endo_Hyli_AS + count_matrix$Ecto_Hyli_AS)/2
+count_matrix$Epi_Hyli_S <- (count_matrix$Endo_Hyli_S + count_matrix$Ecto_Hyli_S)/2
 
-boxplot_matrix <- lin_matrix[,c(2:15)]
-boxplot_matrix[,c(1:12)] <- boxplot_matrix[,c(1:12)] + pseudocount
+count_matrix$Epi_Hywi_AS <- (count_matrix$Endo_Hywi_AS + count_matrix$Ecto_Hywi_AS)/2
+count_matrix$Epi_Hywi_S <- (count_matrix$Endo_Hywi_S + count_matrix$Ecto_Hywi_S)/2
 
-boxplot_matrix$epi_Hyli_AS <- (boxplot_matrix$Ecto_Hyli_AS.isoforms.results + boxplot_matrix$Endo_Hyli_AS.isoforms.results)/2
 
-boxplot_matrix$epi_Hyli_S <- (boxplot_matrix$Ecto_Hyli_S.isoforms.results + boxplot_matrix$Endo_Hyli_S.isoforms.results)/2
+#Add pseudocount to piRNA counts then generate piRNA count density values (RPK)
+count_matrix[,c(9:12,15:18)] <- count_matrix[,c(9:12,15:18)] + pseudocount
+count_matrix[,c(9:12,15:18)] <- count_matrix[,c(9:12,15:18)]/count_matrix$Length
 
-boxplot_matrix$epi_Hywi_AS <- (boxplot_matrix$Ecto_Hywi_AS.isoforms.results + boxplot_matrix$Endo_Hywi_AS.isoforms.results)/2
 
-boxplot_matrix$epi_Hywi_S <- (boxplot_matrix$Ecto_Hywi_S.isoforms.results + boxplot_matrix$Endo_Hywi_S.isoforms.results)/2
+#Plot intersitital piRNA count density values
+Int_matrix_data <- count_matrix[,c(9:12,14)]
+Int_matrix_data_formatted <- melt(Int_matrix_data, id.var = "Transcript_Class")
+colnames(Int_matrix_data_formatted) <- c("Transcript_Class", "piRNA_Origin", "piRNA_Mapping_Density")
+Int_matrix_data_formatted$Transcript_Class<-factor(Int_matrix_data_formatted$Transcript_Class, levels=c("TE", "ncRNA",  "Unchar", "Gene"))
+Int_level_order <- c("Int_Hywi_AS", "Int_Hywi_S", "Int_Hyli_AS", "Int_Hyli_S")
 
-boxplot_matrix[,c(15:18)] <- boxplot_matrix[,c(15:18)]/(boxplot_matrix$Length/1000)
+Int_violin <- ggplot(data = Int_matrix_data_formatted, aes(x= factor(piRNA_Origin, level = Int_level_order), y=piRNA_Mapping_Density), log="y") + geom_violin(aes(fill=Transcript_Class)) + scale_y_log10(
+  breaks = scales::trans_breaks("log10", function(x) 10^x),
+  labels = scales::trans_format("log10", scales::math_format(10^.x))
+)
+Int_plot <- Int_violin + scale_fill_manual(values=c("red", "light blue", "grey", "green")) + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank(), axis.line = element_line(colour = "black")) + theme(legend.text=element_text(size=rel(1))) + ggtitle("Interstitial piRNAs")  + theme(plot.title = element_text(hjust = 0.5)) + xlab("piRNA Origin") + ylab("piRNA Mapping Density (RPK)")
 
 #Plot epithelial piRNA count density values
 
-epi_matrix_feeder <- boxplot_matrix[,c(14,15:18)]
-epi_matrix_plotter <- melt(epi_matrix_feeder, id.var = "Transcript_Class")
-colnames(epi_matrix_plotter) <- c("Transcript_Class", "piRNA_Origin", "piRNA_Mapping_Density")
-epi_matrix_plotter$Transcript_Class<-factor(epi_matrix_plotter$Transcript_Class, levels=c("TE", "ncRNA",  "Unchar", "Gene"))
+Epi_matrix_data <- count_matrix[,c(15:18,14)]
+Epi_matrix_data_formatted <- melt(Epi_matrix_data, id.var = "Transcript_Class")
+colnames(Epi_matrix_data_formatted) <- c("Transcript_Class", "piRNA_Origin", "piRNA_Mapping_Density")
+Epi_matrix_data_formatted$Transcript_Class<-factor(Epi_matrix_data_formatted$Transcript_Class, levels=c("TE", "ncRNA",  "Unchar", "Gene"))
+Epi_level_order <- c("Epi_Hywi_AS", "Epi_Hywi_S", "Epi_Hyli_AS", "Epi_Hyli_S")
 
-epi_level_order <- c("epi_Hyli_AS","epi_Hyli_S","epi_Hywi_AS","epi_Hywi_S")
 
-epi_boxplot <- ggplot(data = epi_matrix_plotter, aes(x= factor(piRNA_Origin, level = epi_level_order), y=piRNA_Mapping_Density), log="y") + geom_boxplot(aes(fill=Transcript_Class)) + scale_y_log10(
+Epi_violin <- ggplot(data = Epi_matrix_data_formatted, aes(x= factor(piRNA_Origin, level = Epi_level_order), y=piRNA_Mapping_Density), log="y") + geom_violin(aes(fill=Transcript_Class)) + scale_y_log10(
   breaks = scales::trans_breaks("log10", function(x) 10^x),
   labels = scales::trans_format("log10", scales::math_format(10^.x))
 )
+Epi_plot <- Epi_violin + scale_fill_manual(values=c("red", "light blue", "grey", "green")) + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank(), axis.line = element_line(colour = "black")) + theme(legend.text=element_text(size=rel(1))) + ggtitle("Epithelial piRNAs")  + theme(plot.title = element_text(hjust = 0.5)) + xlab("piRNA Origin") + ylab("piRNA Mapping Density (RPK)")
 
-epi_boxplot + scale_fill_manual(values=c("red", "light blue", "grey", "green")) + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank(), axis.line = element_line(colour = "black")) + theme(legend.text=element_text(size=rel(1))) + ggtitle("Eptihelial piRNA Mapping Density")  + theme(plot.title = element_text(hjust = 0.5)) + xlab("piRNA Origin") + ylab("piRNA Mapping Density")
-
-#Add pseudocount to raw piRNA counts then generate piRNA count density values for interstitial piRNAs
-
-boxplot_matrix$int_Hyli_AS <- (boxplot_matrix$Int_Hyli_AS.isoforms.results + boxplot_matrix$Int_Hyli_AS.isoforms.results)/2
-
-boxplot_matrix$int_Hyli_S <- (boxplot_matrix$Int_Hyli_S.isoforms.results + boxplot_matrix$Int_Hyli_S.isoforms.results)/2
-
-boxplot_matrix$int_Hywi_AS <- (boxplot_matrix$Int_Hywi_AS.isoforms.results + boxplot_matrix$Int_Hywi_AS.isoforms.results)/2
-
-boxplot_matrix$int_Hywi_S <- (boxplot_matrix$Int_Hywi_S.isoforms.results + boxplot_matrix$Int_Hywi_S.isoforms.results)/2
-
-boxplot_matrix[,c(19:22)] <- boxplot_matrix[,c(19:22)]/(boxplot_matrix$Length/1000)
-
-#Plot interstitial piRNA count density values
-
-int_matrix_feeder <- boxplot_matrix[,c(14,19:22)]
-int_matrix_plotter <- melt(int_matrix_feeder, id.var = "Transcript_Class")
-colnames(int_matrix_plotter) <- c("Transcript_Class", "piRNA_Origin", "piRNA_Mapping_Density")
-int_matrix_plotter$Transcript_Class<-factor(int_matrix_plotter$Transcript_Class, levels=c("TE", "ncRNA",  "Unchar", "Gene"))
-
-int_level_order <- c("int_Hyli_AS","int_Hyli_S","int_Hywi_AS","int_Hywi_S")
-
-int_boxplot <- ggplot(data = int_matrix_plotter, aes(x= factor(piRNA_Origin, level = int_level_order), y=piRNA_Mapping_Density), log="y") + geom_boxplot(aes(fill=Transcript_Class)) + scale_y_log10(
-  breaks = scales::trans_breaks("log10", function(x) 10^x),
-  labels = scales::trans_format("log10", scales::math_format(10^.x))
-)
-
-int_boxplot + scale_fill_manual(values=c("red", "light blue", "grey", "green")) + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank(), axis.line = element_line(colour = "black")) + theme(legend.text=element_text(size=rel(1))) + ggtitle("Interstitial Mapping Density")  + theme(plot.title = element_text(hjust = 0.5)) + xlab("piRNA Origin") + ylab("piRNA Mapping Density")
+#Arrange
+ggarrange(Epi_plot,Int_plot,ncol = 1, nrow = 2)
 
 
+```
+
+#Explore Lineage-sorted piRNA Diversity
+
+To explore the diversity of piRNAs in different lineages, we identified unique piRNA sequences in each lineage as well as the piRNAs species that were present in multiple lineages.  
+
+Lineage-sorted unique sequence lists were generated from the lineage-sorted piRNA libraries generated previously. Each unique sequence was collapsed down to one representative sequence using the script, "unique_sRNA_piRNA_gen_separate.R" and run using the script, "run_unique_sRNA_piRNA_gen_separate.sh."  
+
+Lineage-specific and shared Hywi and Hyli piRNAs were visualized using venn diagrams.  
+
+##Unique Hywi piRNA Sequences
+
+```{r, echo=TRUE, include= TRUE, message= FALSE, warning=FALSE}
+
+#Load unique piRNA sequences sorted by lineage and protein origin
+
+load("objects/Unduplicated_Ecto_Hywi_small_RNAs_crossref.Rda")
+load("objects/Unduplicated_Endo_Hywi_small_RNAs_crossref.Rda")
+load("objects/Unduplicated_Int_Hywi_small_RNAs_crossref.Rda")
+
+#Visualize shared and unique piRNA species by lineage
+
+Venn_Hywi <- list(Ectodermal_piRNAs = Ecto_Hywi$seq, Endodermal_piRNAs = Endo_Hywi$seq, Interstitial_piRNAs = Int_Hywi$seq)
+
+venn.plot.hywi <- venn.diagram(Venn_Hywi,filename = NULL, fill = c("blue", "red", "yellow"))
+grid.draw(venn.plot.hywi)
+
+```
+
+##Unique Hyli piRNA Sequences
+
+```{r, echo=TRUE, include= TRUE, message= FALSE, warning=FALSE}
+
+load("objects/Unduplicated_Ecto_Hyli_small_RNAs_crossref.Rda")
+load("objects/Unduplicated_Endo_Hyli_small_RNAs_crossref.Rda")
+load("objects/Unduplicated_Int_Hyli_small_RNAs_crossref.Rda")
+
+#Visualize shared and unique piRNA species by lineage
+
+Venn_Hyli <- list(Ectodermal_piRNAs = Ecto_Hyli$seq, Endodermal_piRNAs = Endo_Hyli$seq, Interstitial_piRNAs = Int_Hyli$seq)
+
+venn.plot.hyli <- venn.diagram(Venn_Hyli,filename = NULL, fill = c("blue", "red", "yellow"))
+grid.draw(venn.plot.hyli)
 ```
 
 ### Software versions 

@@ -1,13 +1,13 @@
-#set the working directory
-
 setwd("/group/julianolab/bteefy/lineage_seqs/R_scripts/062119_R_scripts")
 data.out <- "/group/julianolab/bteefy/lineage_seqs/R_scripts/062119_R_scripts"
 
-#Load the ShortRead program
+
+#now I will load the ShortRead program
 
 library(ShortRead)
 
-#Create dataframes for each of my FASTQ files
+#now I will create dataframes for each of my FASTQ files
+#the files I will use are WT Hywi piRNAs, WT Hyli piRNAs; ecto, endo, int libraries
 
 #import Hywi piRNAs
 
@@ -52,5 +52,5 @@ seq <- paste(fastq@sread)
 idq <- paste(id(fastq))
 IntRNAs <- data.frame(seq,idq)
 rm(fastq,idq,seq)
-write.table(IntRNAs, file = "EndoRNAs.txt", sep = "\t")
+write.table(IntRNAs, file = "IntRNAs.txt", sep = "\t")
 rm(IntRNAs)

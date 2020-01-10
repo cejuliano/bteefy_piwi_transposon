@@ -1,7 +1,7 @@
 ---
 title: "1 piRNA and Degradome Count Generation"
 author: "Bryan Teefy"
-date: "08/09/2019"
+date: "12/20/2019"
 output:
   pdf_document: default
   html_document: default
@@ -113,25 +113,26 @@ Since piRNAs are complementary to RNA transcript targets (antisense to the targe
 
 Adapters were trimmed from the WT and Colchicine raw reads using the script trimbiooadapter.sh.  
 
-piRNAs were mapped to the *Hydra* transcriptome using RSEM functions rsem-calculate-expression and rsem-generate-data-matrix was used to generate the count matrix.
+piRNAs were mapped to the *Hydra* transcriptome with Bowtie v1.1.2 using the shell script: piRNA_Deg_Mapping.sh.    
 Three mismatches were allowed in the antisense orientation and no mismatches were allowed in the sense orientation. 
 Degradome reads were mapped in the sense orientation with no mismatches since degradome reads are transcript fragments.
 
-piRNA_Deg_rsem_mapping.sh was used for piRNA and Degradome Mapping.  
+A count matrix consisting of the number of mapped piRNAs per transcript was generated using the script: Counting_Matrix_Gen.R.  
+Importantly this script apportioned multimapping piRNAs fractionally such that the count value for a particular piRNA mapping to a transcript was divided by the number of times the piRNA mapped to the transcriptome.  
 
+Counting_Matrix_Gen.R was run using the script: run_Counting_Matrix_Gen.sh.  
+  
 Results are summarized in the table, "piRNA_Counts_Matrix.txt" and "Degradome_Counts_Matrix.txt", which can be found in the GEO repository (GSE135440).  
 
 #Load and Merge the piRNA and Degradome Count Files
 
 ```{r, echo=TRUE, include= TRUE, message= FALSE, warning=FALSE}
 
-piRNA_counts <- read.table("objects/piRNA_Counts_Matrix.txt", sep = "\t", header = T)
+piRNA_counts <- read.table("objects/piRNA_Count_Matrix.txt", header = T)
 
-Deg_counts <- read.table("objects/Degradome_Counts_Matrix.txt", sep = "\t", header = T)
+Deg_counts <- read.table("objects/Deg_Count_Matrix.txt", header = T)
 
 piRNA_Deg_counts <- merge(piRNA_counts, Deg_counts, by = "ID")
-
-#Merge with Count Files
 
 piRNA_Deg_counts <- merge(Transcript_Characterization, piRNA_Deg_counts, by = "ID")
 
@@ -139,43 +140,37 @@ piRNA_Deg_counts <- merge(Transcript_Characterization, piRNA_Deg_counts, by = "I
 
 #Generate Normalized piRNA Counts
 
-PIWI targets should have a high density of piRNA counts. We normalize piRNA counts by transcript length to determine piRNA count density.
+PIWI targets should have a high density of piRNA counts. We normalize piRNA counts by transcript length to determine piRNA count density (Reads per kilobase [RPK]).
 
-To determine if the piRNA count density values were significantly different between classes of transcripts, we performed Tukey's Honest Significant Difference test to compare mean piRNA count density between each transcript type (i.e. TE, ncRNA, Unchar., Gene) for each piRNA class (i.e. Hywi Antisense-mapped, Hyli Sense-mapped).  
+To determine if piRNA count density values were significantly different between classes of transcripts, we performed Tukey's Honest Significant Difference test to compare mean piRNA count density between each transcript type (i.e. TE, ncRNA, Unchar., Gene) for each piRNA class (i.e. Hywi Antisense-mapped, Hyli Sense-mapped).  
 
 ```{r, echo=TRUE, include= TRUE, message= FALSE, warning=FALSE}
 
-#Determine count density by dividing counts by transcrpt length in kilobases
+#Generate RPK values
 
 norm <- (piRNA_Deg_counts$Length/1000)
 
-piRNA_Deg_counts$WT_Hyli_AS_kb <- piRNA_Deg_counts$WT_Hyli_AS/norm
-piRNA_Deg_counts$WT_Hyli_S_kb <- piRNA_Deg_counts$WT_Hyli_S/norm
-piRNA_Deg_counts$WT_Hywi_AS_kb <- piRNA_Deg_counts$WT_Hywi_AS/norm
-piRNA_Deg_counts$WT_Hywi_S_kb <- piRNA_Deg_counts$WT_Hywi_S/norm
-piRNA_Deg_counts$WT_Deg_S_kb <- piRNA_Deg_counts$WT_Deg_S/norm
-piRNA_Deg_counts$Colch_Hyli_AS_kb <- piRNA_Deg_counts$Colch_Hyli_AS/norm
-piRNA_Deg_counts$Colch_Hyli_S_kb <- piRNA_Deg_counts$Colch_Hyli_S/norm
-piRNA_Deg_counts$Colch_Hywi_AS_kb <- piRNA_Deg_counts$Colch_Hywi_AS/norm
-piRNA_Deg_counts$Colch_Hywi_S_kb <- piRNA_Deg_counts$Colch_Hywi_S/norm
-piRNA_Deg_counts$Colch_Deg_S_kb <- piRNA_Deg_counts$Colch_Deg_S/norm
+piRNA_Deg_counts[,c(22:31)] <- piRNA_Deg_counts[,c(12:21)]/norm
+
+colnames(piRNA_Deg_counts)[22:31] <- c("WT_Hywi_AS_Counts_RPK",	"WT_Hyli_AS_Counts_RPK",	"WT_Hywi_S_Counts_RPK",	"WT_Hyli_S_Counts_RPK",	"Colch_Hywi_AS_Counts_RPK",	"Colch_Hyli_AS_Counts_RPK",	"Colch_Hywi_S_Counts_RPK",	"Colch_Hyli_S_Counts_RPK",	"WT_Deg_Counts_RPK",	"Colch_Deg_Counts_RPK")
+
 
 #Perform Tukey's Honest Significant Difference test
 
 #Group normalized mapping counts
-Normalized_Mapping_Counts_Matrix <- piRNA_Deg_counts[,c(22:25,27:30,11)]
+Normalized_Mapping_Counts_Matrix <- piRNA_Deg_counts[,c(22:29,11)]
 Normalized_Mapping_Counts_Matrix_Formatted <- melt(Normalized_Mapping_Counts_Matrix, id.var = "Transcript_Class")
 
 #Subset count density based on piRNA origin
-WT_Hyli_AS_Stats <- subset(Normalized_Mapping_Counts_Matrix_Formatted, variable == "WT_Hyli_AS_kb")
-WT_Hyli_S_Stats <- subset(Normalized_Mapping_Counts_Matrix_Formatted, variable == "WT_Hyli_S_kb")
-WT_Hywi_AS_Stats <- subset(Normalized_Mapping_Counts_Matrix_Formatted, variable == "WT_Hywi_AS_kb")
-WT_Hywi_S_Stats <- subset(Normalized_Mapping_Counts_Matrix_Formatted, variable == "WT_Hywi_S_kb")
+WT_Hyli_AS_Counts_Stats <- subset(Normalized_Mapping_Counts_Matrix_Formatted, variable == "WT_Hyli_AS_Counts_RPK")
+WT_Hyli_S_Counts_Stats <- subset(Normalized_Mapping_Counts_Matrix_Formatted, variable == "WT_Hyli_S_Counts_RPK")
+WT_Hywi_AS_Counts_Stats <- subset(Normalized_Mapping_Counts_Matrix_Formatted, variable == "WT_Hywi_AS_Counts_RPK")
+WT_Hywi_S_Counts_Stats <- subset(Normalized_Mapping_Counts_Matrix_Formatted, variable == "WT_Hywi_S_Counts_RPK")
 
-Colch_Hyli_AS_Stats <- subset(Normalized_Mapping_Counts_Matrix_Formatted, variable == "Colch_Hyli_AS_kb")
-Colch_Hyli_S_Stats <- subset(Normalized_Mapping_Counts_Matrix_Formatted, variable == "Colch_Hyli_S_kb")
-Colch_Hywi_AS_Stats <- subset(Normalized_Mapping_Counts_Matrix_Formatted, variable == "Colch_Hywi_AS_kb")
-Colch_Hywi_S_Stats <- subset(Normalized_Mapping_Counts_Matrix_Formatted, variable == "Colch_Hywi_S_kb")
+Colch_Hyli_AS_Counts_Stats <- subset(Normalized_Mapping_Counts_Matrix_Formatted, variable == "Colch_Hyli_AS_Counts_RPK")
+Colch_Hyli_S_Counts_Stats <- subset(Normalized_Mapping_Counts_Matrix_Formatted, variable == "Colch_Hyli_S_Counts_RPK")
+Colch_Hywi_AS_Counts_Stats <- subset(Normalized_Mapping_Counts_Matrix_Formatted, variable == "Colch_Hywi_AS_Counts_RPK")
+Colch_Hywi_S_Counts_Stats <- subset(Normalized_Mapping_Counts_Matrix_Formatted, variable == "Colch_Hywi_S_Counts_RPK")
 
 #Develop Tukey Test Function (ANOVA post hoc test)
 
@@ -186,26 +181,26 @@ Tukey_Test <- function(x){
 
 #Run Tukey Test
 
-Tukey_Test(WT_Hyli_AS_Stats)
-Tukey_Test(WT_Hyli_S_Stats)
-Tukey_Test(WT_Hywi_AS_Stats)
-Tukey_Test(WT_Hywi_S_Stats)
-Tukey_Test(Colch_Hyli_AS_Stats)
-Tukey_Test(Colch_Hyli_S_Stats)
-Tukey_Test(Colch_Hywi_AS_Stats)
-Tukey_Test(Colch_Hywi_S_Stats)
+Tukey_Test(WT_Hyli_AS_Counts_Stats)
+Tukey_Test(WT_Hyli_S_Counts_Stats)
+Tukey_Test(WT_Hywi_AS_Counts_Stats)
+Tukey_Test(WT_Hywi_S_Counts_Stats)
+Tukey_Test(Colch_Hyli_AS_Counts_Stats)
+Tukey_Test(Colch_Hyli_S_Counts_Stats)
+Tukey_Test(Colch_Hywi_AS_Counts_Stats)
+Tukey_Test(Colch_Hywi_S_Counts_Stats)
 
 ```
 
 #Visualizing piRNA Mapping
 
-Since the range of observed count density values was large, we used a log scale to visualize piRNA count density. For boxplot visualization, we added a pseudocount to the raw piRNA counts to remove any 0 count density values that would return infinite values on a log scale. The pseudocount we chose was 0.01 since that was the lowest fractional count used in our counting strategy. We explored piRNA count density for 1) Whole animals and 2) Epithelial Animals.
+Since the range of observed count density values was large, we used a log scale to visualize piRNA count density. For boxplot visualization, we added a pseudocount to the raw piRNA counts to remove any 0 count density values that would return infinite values on a log scale. The pseudocount we chose was 0.001 since that approximated the lowest fractional count used in our counting strategy. We explored piRNA count density for 1) Whole animals and 2) Epithelial Animals.
 
 ```{r, echo=TRUE, include= TRUE, message= FALSE, warning=FALSE}
 
 #Set pseudocount
 
-pseudocount <- 0.01
+pseudocount <- 0.001
 
 #Add pseudocount to raw piRNA counts then generate piRNA count density values
 
@@ -220,14 +215,14 @@ wt_matrix_data_formatted <- melt(wt_matrix_data, id.var = "Transcript_Class")
 colnames(wt_matrix_data_formatted) <- c("Transcript_Class", "piRNA_Origin", "piRNA_Mapping_Density")
 wt_matrix_data_formatted$Transcript_Class<-factor(wt_matrix_data_formatted$Transcript_Class, levels=c("TE", "ncRNA",  "Unchar", "Gene"))
 
-WT_level_order <- c("WT_Hywi_AS","WT_Hywi_S","WT_Hyli_AS","WT_Hyli_S")
+WT_level_order <- c("WT_Hywi_AS_Counts","WT_Hywi_S_Counts","WT_Hyli_AS_Counts","WT_Hyli_S_Counts")
 
 WT_boxplot <- ggplot(data = wt_matrix_data_formatted, aes(x= factor(piRNA_Origin, level = WT_level_order), y=piRNA_Mapping_Density), log="y") + geom_boxplot(aes(fill=Transcript_Class)) + scale_y_log10(
   breaks = scales::trans_breaks("log10", function(x) 10^x),
   labels = scales::trans_format("log10", scales::math_format(10^.x))
 )
 
-WT_boxplot + scale_fill_manual(values=c("red", "light blue", "grey", "green")) + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank(), axis.line = element_line(colour = "black")) + theme(legend.text=element_text(size=rel(1))) + ggtitle("Whole Animal piRNA Mapping Density")  + theme(plot.title = element_text(hjust = 0.5)) + xlab("piRNA Origin") + ylab("piRNA Mapping Density")
+WT_boxplot + scale_fill_manual(values=c("red", "light blue", "grey", "green")) + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank(), axis.line = element_line(colour = "black")) + theme(legend.text=element_text(size=rel(1))) + ggtitle("Whole Animal piRNA Mapping Density")  + theme(plot.title = element_text(hjust = 0.5)) + xlab("piRNA Origin") + ylab("piRNA Mapping Density (RPK)")
 
 #Plot epithelial animal piRNA count density values
 
@@ -236,20 +231,29 @@ colch_matrix_data_formatted <- melt(colch_matrix_data, id.var = "Transcript_Clas
 colnames(colch_matrix_data_formatted) <- c("Transcript_Class", "piRNA_Origin", "piRNA_Mapping_Density")
 colch_matrix_data_formatted$Transcript_Class<-factor(colch_matrix_data_formatted$Transcript_Class, levels=c("TE", "ncRNA",  "Unchar", "Gene"))
 
-colch_level_order <- c("Colch_Hywi_AS","Colch_Hywi_S","Colch_Hyli_AS","Colch_Hyli_S")
+colch_level_order <- c("Colch_Hywi_AS_Counts","Colch_Hywi_S_Counts","Colch_Hyli_AS_Counts","Colch_Hyli_S_Counts")
 
 colch_boxplot <- ggplot(data = colch_matrix_data_formatted, aes(x= factor(piRNA_Origin, level = colch_level_order), y=piRNA_Mapping_Density), log="y") + geom_boxplot(aes(fill=Transcript_Class)) + scale_y_log10(
   breaks = scales::trans_breaks("log10", function(x) 10^x),
   labels = scales::trans_format("log10", scales::math_format(10^.x))
 )
 
-colch_boxplot + scale_fill_manual(values=c("red", "light blue", "grey", "green")) + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank(), axis.line = element_line(colour = "black")) + theme(legend.text=element_text(size=rel(1))) + ggtitle("Somatic piRNA Mapping Density")  + theme(plot.title = element_text(hjust = 0.5)) + xlab("piRNA Origin") + ylab("piRNA Mapping Density")
+colch_boxplot + scale_fill_manual(values=c("red", "light blue", "grey", "green")) + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank(), axis.line = element_line(colour = "black")) + theme(legend.text=element_text(size=rel(1))) + ggtitle("Somatic piRNA Mapping Density")  + theme(plot.title = element_text(hjust = 0.5)) + xlab("piRNA Origin") + ylab("piRNA Mapping Density (RPK)")
 
 
 #write table that summarizes results
-#write.table(piRNA_Deg_counts, file = "Annotated_piRNA_Degradome_Count_Matrix.txt")
+#write.table(piRNA_Deg_counts, file = "objects/Annotated_piRNA_Degradome_Count_Matrix.txt", sep = "\t")
+
 
 ```
+
+#Assessing piRNA Origin
+
+piRNAs can be derived from distinct genomic loci, such as dedicated piRNA clusters, or from antisense transcription. If piRNAs are dervied from antisense transcription, piRNAs should map to such targets in the *Hydra* transcriptome in the antisense orientation without mismatches. However, if piRNAs are generated from distinct genomic loci, it is likely that piRNAs will align to their targets with mismatches.   
+
+To address this distinction, we mapped piRNAs in the antisense orientation without mismatches to the *Hydra* transcriptome using the script: No_mismatch_mapping.sh  
+
+The script "piRNA_stats.sh" was used to calculate the total number of aligned piRNAs with and without mismatches. The results showed that 68.0% of piRNAs isolated from WT animals and 85.1% of piRNAs isolated from epithelial animals mapped with at least one mismatch. This indicates that the majority of piRNAs are dervied from a locus distinct from the target transcript.  
 
 ### Software versions 
 

@@ -1,7 +1,7 @@
 ---
 title: "2 Differential Gene Expression Analysis and GO Enrichment"
 author: "Stefan Siebert and Bryan Teefy"
-date: "08/09/2019"
+date: "12/20/2019"
 output:
   pdf_document: default
   html_document: default
@@ -28,7 +28,7 @@ counts <- read.table("objects/Differential_Gene_Expression_Count_Matrix.txt", se
 
 #Load normalized piRNA and degradome reads and transcript characterization from RMD1
 
-piRNA_Deg_counts <- read.table("objects/Annotated_piRNA_Degradome_Count_Matrix.txt", sep="\t", check.names = FALSE, header = TRUE)
+piRNA_Deg_counts <- read.table("objects/Annotated_piRNA_Degradome_Count_Matrix.txt", sep="\t")
 
 ```
 
@@ -179,7 +179,7 @@ plotMDS(y, method="bcv",cex = 0.7)
 
 ```
 
-#Differential Gene Expression (DGE) analysis - wildtype vs *hywi* knockdown.
+#Differential Gene Expression (DGE) analysis - wildtype vs *hywi* knockdown
 
 We perform DGE analysis after excluding outlier replicates WT1 and KD3.  
 
@@ -241,40 +241,61 @@ pie(Upreg_Types,labels = lbls, col=colors,
     main="hywi RNAi Upregulated Transcript Composition")
 
 ```
-##Somatic Hywi piRNA Mapping Ordering
+
+#Somatic Hywi piRNA Mapping Density Ordering
 
 To infer direct targets of Hywi, *hywi* RNAi upregulated transcripts can be described as high and low Hywi piRNA mapping transcripts. "High-mapping"" transcripts are likely to be direct Hywi targets while "low-mapping" transcripts are unlikely to be direct Hywi targets. High Mapping transcripts were defined as those transcripts that were in the top 20% of read counts per kilobase million after combining Colch Hywi Sense and Colch Hywi Antisense reads.  
 
-To infer which transcripts were most likely to be involved in the ping-pong cycle in somatic stem cells, transcripts were ordered by Colch Hywi Antisense reads per kilobase million. Transcripts that fall within the top 5% in this category were considered to be putative ping-pong transcripts.  
+To infer which transcripts were most likely to be involved in the ping-pong cycle in somatic stem cells, transcripts were ordered by Colch Hywi Antisense reads per kilobase million. Transcripts that fall within the top 20% in this category were considered to be putative ping-pong transcripts.  
 
-To infer which transcripts may be "primary-processed" by Hywi in somatic stem cells, transcripts were ordered by Colch Hywi Sense reads per kilobase million. Transcripts that fall within the top 5% in this category were considered to be putative primary-processed transcripts.  
+To infer which transcripts may be processed by Hywi phasing in somatic stem cells, transcripts were ordered by Colch Hywi Sense reads per kilobase million. Transcripts that fall within the top 20% in this category were considered to be putative phased transcripts.  
+
+The same process was performed for Hyli piRNAs.
 
 ```{r, echo=TRUE, include= TRUE, message= FALSE, warning=FALSE}
 
-#generate RPM (Read counts Per kilobase Million) data for Colch Hywi Sense/Antisense piRNAs (i.e. summed Colch Hywi Sense/Antisense piRNA read counts mapped per kb of transcript per million piRNA read counts)
+#Generate percentiles for the different groups
 
-piRNA_Deg_counts$Somatic_Hywi_Perc <- (piRNA_Deg_counts$Colch_Hywi_AS_kb + piRNA_Deg_counts$Colch_Hywi_S_kb)/(sum(piRNA_Deg_counts$Colch_Hywi_AS_kb + piRNA_Deg_counts$Colch_Hywi_S_kb)/1000000)
+piRNA_Deg_counts$Somatic_Hywi_Perc <- (piRNA_Deg_counts$Colch_Hywi_AS_Counts_RPK + piRNA_Deg_counts$Colch_Hywi_S_Counts_RPK)
 
 piRNA_Deg_counts$Somatic_Hywi_Perc <- ecdf(piRNA_Deg_counts$Somatic_Hywi_Perc)(piRNA_Deg_counts$Somatic_Hywi_Perc)  
 
-#repeat for only Colch Hywi Antisense piRNAs
+#Repeat for only Colch Hywi Antisense piRNAs
 
-piRNA_Deg_counts$Somatic_Hywi_Perc_AS <- (piRNA_Deg_counts$Colch_Hywi_AS_kb)/(sum(piRNA_Deg_counts$Colch_Hywi_AS_kb + piRNA_Deg_counts$Colch_Hywi_S_kb)/1000000)
+piRNA_Deg_counts$Somatic_Hywi_Perc_AS <- (piRNA_Deg_counts$Colch_Hywi_AS_Counts_RPK)
 
 piRNA_Deg_counts$Somatic_Hywi_Perc_AS <- ecdf(piRNA_Deg_counts$Somatic_Hywi_Perc_AS)(piRNA_Deg_counts$Somatic_Hywi_Perc_AS)  
 
-#repeat for only Colch Hywi Sense piRNAs
+#Repeat for only Colch Hywi Sense piRNAs
 
-piRNA_Deg_counts$Somatic_Hywi_Perc_S <- (piRNA_Deg_counts$Colch_Hywi_S_kb)/(sum(piRNA_Deg_counts$Colch_Hywi_AS_kb + piRNA_Deg_counts$Colch_Hywi_S_kb)/1000000)
+piRNA_Deg_counts$Somatic_Hywi_Perc_S <- (piRNA_Deg_counts$Colch_Hywi_S_Counts_RPK)
 
 piRNA_Deg_counts$Somatic_Hywi_Perc_S <- ecdf(piRNA_Deg_counts$Somatic_Hywi_Perc_S)(piRNA_Deg_counts$Somatic_Hywi_Perc_S)  
 
+#Repeat with Hyli
+
+piRNA_Deg_counts$Somatic_Hyli_Perc <- (piRNA_Deg_counts$Colch_Hyli_AS_Counts_RPK + piRNA_Deg_counts$Colch_Hyli_S_Counts_RPK)
+
+piRNA_Deg_counts$Somatic_Hyli_Perc <- ecdf(piRNA_Deg_counts$Somatic_Hyli_Perc)(piRNA_Deg_counts$Somatic_Hyli_Perc)  
+
+#Repeat for only Colch Hyli Antisense piRNAs
+
+piRNA_Deg_counts$Somatic_Hyli_Perc_AS <- (piRNA_Deg_counts$Colch_Hyli_AS_Counts_RPK)
+
+piRNA_Deg_counts$Somatic_Hyli_Perc_AS <- ecdf(piRNA_Deg_counts$Somatic_Hyli_Perc_AS)(piRNA_Deg_counts$Somatic_Hyli_Perc_AS)  
+
+#Repeat for only Colch Hyli Sense piRNAs
+
+piRNA_Deg_counts$Somatic_Hyli_Perc_S <- (piRNA_Deg_counts$Colch_Hyli_S_Counts_RPK)
+
+piRNA_Deg_counts$Somatic_Hyli_Perc_S <- ecdf(piRNA_Deg_counts$Somatic_Hyli_Perc_S)(piRNA_Deg_counts$Somatic_Hyli_Perc_S) 
+
 #write table that summarizes data
-#write.table(piRNA_Deg_counts, file = "Annotated_piRNA_Degradome_DGE_Count_Matrix.txt")
+#write.table(piRNA_Deg_counts, file = "objects/Annotated_piRNA_Degradome_DGE_Count_Matrix.txt", sep = "\t")
 
 ```
 
-##GO-Term Enrichment Analysis
+#GO-Term Enrichment Analysis
 
 GO-term enrichment analysis was performed on upregulated transcripts against the entire transcriptome to investigate a functional response to somatic *hywi* knockdown.  
 
@@ -282,20 +303,20 @@ GO-term enrichment analysis was performed using goatools v0.6.10 using the scrip
 
 ```{r, echo=TRUE, include= TRUE, message= FALSE, warning=FALSE}
 
-#load GO annotation results
+#Load GO annotation results
 
 GO_table <- read.table("objects/GO_upreg_trans_full_ref.txt", header = T, sep = "\t")
 
-#take enriched biological processes
+#Take enriched biological processes
 
 GO_table_sub <- subset(GO_table, p_bonferroni <= 0.05 & NS == "BP")
 
-#include GO accession number, GO term, ratio in study, ratio in population, bonferroni corrected p-value, and transcript IDs
+#Include GO accession number, GO term, ratio in study, ratio in population, bonferroni corrected p-value, and transcript IDs
 
 GO_table_sub <- GO_table_sub[,c(1,4:6,10,14)]
 colnames(GO_table_sub) <- c("GO","GO_Term", "Study", "Pop", "p_val", "ID")
 
-#print table
+#Print table
 
 kable(GO_table_sub, format = "markdown", padding = 100)
 ```

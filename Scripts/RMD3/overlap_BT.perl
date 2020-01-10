@@ -1,5 +1,5 @@
 #!/usr/bin/perl
-
+  
 open($bt1,"bedtools intersect -wo -a $ARGV[0] -b $ARGV[1] |");
 while (<$bt1>) {
     chomp;
