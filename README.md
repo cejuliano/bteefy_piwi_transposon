@@ -20,8 +20,8 @@ R Markdown documents with analysis code (also available as knitted pdfs).
 `2_Differential_Gene_Expression_GO_Analysis.Rmd`
  - hywi knockdown - Differential Gene Expression analysis, GO-term enrichment
 
-`3_Ping_Pong_Analysis.Rmd`
- - Ping-pong hit count files, ping-pong overlap frequency, ping-pong hit transcript classification
+`3_Ping_Pong_Phasing.Rmd`
+ - Ping-pong hit count files, ping-pong overlap frequency, ping-pong hit classification, piRNA phasing, Z-score analysis
 
 `4_Lineage_Sorted_piRNA_Mapping.Rmd` 
  - Lineage-sorting and counting of piRNAs
